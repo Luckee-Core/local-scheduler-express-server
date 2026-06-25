@@ -1,0 +1,14 @@
+{
+  "workers": {
+    "lead-studio": {
+      "expressDir": "/absolute/path/to/lead-studio-express-server",
+      "port": 3032,
+      "nvmSh": "/opt/homebrew/opt/nvm/nvm.sh"
+    }
+  },
+  "tasks": {
+    "lead-studio-email-queue": {
+      "enabled": true
+    }
+  }
+}

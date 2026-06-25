@@ -1,0 +1,29 @@
+{
+  "tasks": [
+    {
+      "id": "lead-studio-email-queue",
+      "name": "Lead Studio — process due emails",
+      "workerProjectId": "lead-studio",
+      "worker": {
+        "expressRepoName": "lead-studio-express-server",
+        "defaultPort": 3032,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/data/lead-contact-email-queue/process-due"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 15,
+        "timezone": "America/New_York",
+        "weekdays": [1, 2, 3, 4, 5],
+        "hourStart": 8,
+        "hourEnd": 17
+      },
+      "lifecycle": "start_if_needed_stop_if_started",
+      "enabledByDefault": true
+    }
+  ]
+}

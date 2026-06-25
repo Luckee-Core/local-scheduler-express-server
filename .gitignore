@@ -12,6 +12,7 @@ dist/
 .env
 .env.local
 .env.production
+scheduler.local.json
 
 # Logs
 logs/

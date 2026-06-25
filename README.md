@@ -1,165 +1,60 @@
-# Express Server Template
+# Local Scheduler Express Server
 
-A production-ready Express API server template with TypeScript, perfect for quickly spinning up new backend services.
+Local-only daemon that registers scheduled HTTP tasks against worker Express apps (Lead Studio, etc.), manages worker lifecycle, and persists run history on disk.
 
-## Features
+Default port: **4120** (binds `127.0.0.1` only).
 
-- ✅ **TypeScript** - Full type safety and modern JS features
-- ✅ **Express.js** - Fast, minimalist web framework
-- ✅ **CORS** - Configured for cross-origin requests
-- ✅ **Hot Reload** - Nodemon for development
-- ✅ **Health Checks** - Built-in health endpoints
-- ✅ **Error Handling** - Centralized error middleware
-- ✅ **Clean Structure** - Organized, scalable file structure
+## Quick start
 
-## Quick Start
-
-### 1. Create a New Project from This Template
-
-**Using GitHub CLI:**
-```bash
-gh repo create my-new-api --template trouthouse-tech/express-server-template --private --clone
-cd my-new-api
-```
-
-**Using degit:**
-```bash
-npx degit trouthouse-tech/express-server-template my-new-api
-cd my-new-api
-git init
-```
-
-### 2. Install Dependencies
 ```bash
 npm install
-```
-
-### 3. Run Development Server
-```bash
+cp .env.example .env
+cp scheduler.local.json.example scheduler.local.json
+# Edit scheduler.local.json with absolute paths to worker repos
 npm run dev
 ```
 
-Server will start on `http://localhost:3000`
+Verify:
 
-### 4. Test It
 ```bash
-curl http://localhost:3000
-# {"status":"ok","message":"TroutHouseTech Express Server is running",...}
+curl http://127.0.0.1:4120/api/tasks
 ```
 
-## Available Endpoints
+## Configuration
 
-- `GET /` - Health check
-- `GET /api/health` - Health check with detailed info
+| File | Purpose |
+|------|---------|
+| `data/tasks.registry.json` | Committed task catalog |
+| `scheduler.local.json` | Machine paths + enable flags (gitignored) |
+| `.env` | `PORT`, `SCHEDULER_RUNS_DIR`, `SCHEDULER_WORKERS_DIR` |
 
-## Project Structure
+First shipped task: **lead-studio-email-queue** — POSTs to Lead Studio `process-due` every 15 minutes on weekdays 8–5 ET.
 
-```
-express-server-template/
-├── index.ts                 # Main entry point
-├── src/
-│   └── services/
-│       ├── middleware/      # Express middleware
-│       │   ├── setup-early-middleware.ts
-│       │   ├── setup-error-handling.ts
-│       │   └── index.ts
-│       ├── health/          # Health check routes
-│       │   ├── create-health-router.ts
-│       │   └── index.ts
-│       └── server/          # Server startup logic
-│           ├── start-server.ts
-│           └── index.ts
-├── package.json
-├── tsconfig.json
-└── .gitignore
-```
+## API
 
-## Environment Variables
+- `GET /api/health` — health check
+- `GET /api/tasks` — merged tasks
+- `PATCH /api/tasks/:id` — update `enabled`
+- `POST /api/tasks/:id/run-now` — run immediately
+- `GET /api/runs` — run history
 
-Create a `.env` file in the root directory:
+## Optional: launchd (macOS login item)
 
-```env
-PORT=3000
-NODE_ENV=development
-```
-
-## Scripts
-
-- `npm run dev` - Start development server with hot reload
-- `npm start` - Start production server
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm run build:watch` - Watch mode compilation
-
-## Adding New Routes
-
-Feature routes and business logic live under `src/services/{feature}/`. When you add a database, put CRUD in `src/data/{table}/` (one file per operation) and call those functions from `processX()` in the service folder.
-
-1. Create a new router in `src/services/{feature}/`:
-
-```typescript
-// src/services/my-feature/create-my-router.ts
-import { Router, Request, Response } from 'express';
-
-export const createMyRouter = (): Router => {
-  const router = Router();
-  
-  router.get('/', (req: Request, res: Response) => {
-    res.json({ message: 'My feature works!' });
-  });
-  
-  return router;
-};
-```
-
-2. Export it in `src/services/my-feature/index.ts`:
-
-```typescript
-export { createMyRouter } from './create-my-router';
-```
-
-3. Mount it in `index.ts`:
-
-```typescript
-import { createMyRouter } from './src/services/my-feature';
-app.use('/api/my-feature', createMyRouter());
-```
-
-## Deployment
-
-### Build for Production
 ```bash
-npm run build
+./scripts/install-launchd.sh
 ```
 
-### Run Production Build
-```bash
-NODE_ENV=production node dist/index.js
-```
+Starts the scheduler express server on login. The web UI is started separately (`local-scheduler-web` on port 4121).
 
-## Architecture & agent rules
+## Disable cloud cron
 
-Cursor agents and contributors should follow **`.cursor/rules/AGENTS.md`** and the ADRs in **`.cursor/architecture/`**.
+If you previously used Supabase `pg_cron` for Lead Studio email queue, disable it after switching to local scheduler. See `mentorai-server/supabase/cron-jobs/unschedule-lead-contact-email-scheduler.sql`.
 
-| Layer | Path | Purpose |
-|-------|------|---------|
-| CRUD | `src/data/{table}/` | One folder per table, one function per file — **no business logic** |
-| HTTP + actions | `src/services/{feature}/` | Routers, handlers, `processX()` business logic |
-| Cross-cutting | `src/services/middleware`, `health`, `server` | Shipped in starter |
+## Architecture
 
-There is **no `src/domains/`** folder in this template.
+Follow **`.cursor/rules/AGENTS.md`** and **`.cursor/architecture/`** (ADRs 001–008).
 
-## Architecture Principles
+## Related
 
-- **One function per file** — including each CRUD operation in its own file under `src/data/{table}/`
-- **Factory pattern** — `createXRouter(): Router` in `src/services/{feature}/`
-- **Index exports** — every folder has an `index.ts`
-- **CRUD vs services** — database calls only in `src/data/`; orchestration in `src/services/`
-- **Type safety** — use `type`, not `interface`
-
-## License
-
-MIT
-
-## Author
-
-TroutHouseTech
+- **local-scheduler-web** — dashboard UI on port 4121
+- **Luckee Dev Hub** — optional future link; not required for v1

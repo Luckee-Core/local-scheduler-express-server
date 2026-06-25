@@ -1,26 +1,31 @@
 {
-  "name": "express-server-template",
+  "name": "local-scheduler-express-server",
   "version": "1.0.0",
-  "description": "Express API Server Template - Ready-to-use Express server with TypeScript",
+  "description": "Local Scheduler Express API — task registry, cron engine, worker lifecycle",
   "main": "index.ts",
   "scripts": {
     "start": "ts-node index.ts",
     "dev": "nodemon --exec ts-node index.ts",
     "build": "tsc",
-    "build:watch": "tsc --watch"
+    "build:watch": "tsc --watch",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "express": "^5.2.1",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "luxon": "^3.7.1",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/luxon": "^3.7.1",
     "@types/node": "^25.9.1",
-    "typescript": "^6.0.3",
+    "@types/node-cron": "^3.0.11",
+    "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
-    "nodemon": "^3.1.11"
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=20.0.0"
