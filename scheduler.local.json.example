@@ -4,10 +4,17 @@
       "expressDir": "/absolute/path/to/lead-studio-express-server",
       "port": 3032,
       "nvmSh": "/opt/homebrew/opt/nvm/nvm.sh"
+    },
+    "city-nonprofits": {
+      "expressDir": "/absolute/path/to/city-nonprofits-express-server",
+      "port": 3028
     }
   },
   "tasks": {
     "lead-studio-email-queue": {
+      "enabled": true
+    },
+    "city-nonprofits-social-publish-queue": {
       "enabled": true
     }
   }

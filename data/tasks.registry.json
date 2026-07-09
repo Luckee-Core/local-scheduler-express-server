@@ -24,6 +24,32 @@
       },
       "lifecycle": "start_if_needed_stop_if_started",
       "enabledByDefault": true
+    },
+    {
+      "id": "city-nonprofits-social-publish-queue",
+      "name": "City Nonprofits — process due social publishes",
+      "workerProjectId": "city-nonprofits",
+      "worker": {
+        "expressRepoName": "city-nonprofits-express-server",
+        "defaultPort": 3028,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/data/social-media-publish-queue/process-due",
+        "authEnvKey": "CITY_NONPROFITS_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 5,
+        "timezone": "America/New_York",
+        "weekdays": [1, 2, 3, 4, 5, 6, 7],
+        "hourStart": 8,
+        "hourEnd": 22
+      },
+      "lifecycle": "start_if_needed_stop_if_started",
+      "enabledByDefault": true
     }
   ]
 }
