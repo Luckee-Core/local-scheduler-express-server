@@ -2,7 +2,7 @@
 
 ## Goal
 
-Initialize managed service clients once at server startup, then reuse them in service handlers through `getManagedSupabaseClient()` and `getManagedAnthropicClient()`.
+Initialize managed service clients once at server startup, then reuse them in service handlers through `getManagedSupabaseClient()`, `getManagedAnthropicClient()`, and `getManagedStripeClient()`.
 
 ## Managed Service Clients
 
@@ -10,8 +10,9 @@ Use managed client accessors in service handlers and `processX()` code:
 
 - `getManagedSupabaseClient()`
 - `getManagedAnthropicClient()`
+- `getManagedStripeClient()`
 
-Do not call `createClient()` inside handlers, routers, `processX()` functions, or data-layer functions.
+Do not call `createClient()` or `new Stripe()` inside handlers, routers, `processX()` functions, or data-layer functions. Construct Stripe only in `initializeStripeClient()` at startup.
 
 ✅ Correct:
 ```typescript
@@ -246,7 +247,19 @@ const response = await fetch('https://railway-service.example.com/api/ai/summari
 const supabase = createClient(url, key); // ❌ no direct CRUD/business logic in edge
 ```
 
+## Appendix — Local Postgres scheduler (`local-scheduler-express-server`)
+
+This app does **not** use Supabase. Use a managed **`pg` Pool** instead:
+
+- `initializePgPool()` at startup (before routes / `app.listen`)
+- `getManagedPgPool()` in handlers; null pool → HTTP `500`
+- Data functions take `Pool` (or `PoolClient`) as the **first parameter** — same boundary as Supabase, different client type
+- Do not call `new Pool()` inside handlers or `processX()`
+
+Handlers for data routes follow the same five steps with `getManagedPgPool()` in step 1.
+
 ## Related
 
 - See [Router Factory & Handler Pattern](./002-router-factory-and-handler-pattern.md)
 - See [003 – Data layer CRUD boundaries](./003-data-layer-crud-boundaries.md)
+- See [009 – Local scheduler service](./009-local-scheduler-service.md)

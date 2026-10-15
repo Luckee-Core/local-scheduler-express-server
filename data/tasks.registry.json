@@ -1,52 +1,157 @@
 {
   "tasks": [
     {
-      "id": "lead-studio-email-queue",
-      "name": "Lead Studio — process due emails",
-      "workerProjectId": "lead-studio",
+      "id": "philly-ai-consulting-email-queue",
+      "name": "Philly AI Consulting — process due lead emails",
+      "workerProjectId": "philly-ai-consulting",
       "worker": {
-        "expressRepoName": "lead-studio-express-server",
-        "defaultPort": 3032,
+        "expressRepoName": "philly-ai-consulting-express-server",
+        "defaultPort": 3044,
         "healthPath": "/api/health",
         "startCommand": "npm start"
       },
       "request": {
         "method": "POST",
-        "path": "/api/data/lead-contact-email-queue/process-due"
+        "path": "/api/cron/process-lead-contact-email-queue",
+        "authEnvKey": "PHILLY_AI_CONSULTING_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 5,
+        "timezone": "America/New_York",
+        "weekdays": [1, 2, 3, 4, 5],
+        "hourStart": 6,
+        "hourEnd": 11
+      },
+      "lifecycle": "start_if_needed_stop_if_started",
+      "enabledByDefault": true
+    },
+    {
+      "id": "gmail-manager-morning-inbox",
+      "name": "Gmail Manager — morning sync and AI queue seed",
+      "workerProjectId": "my-gmail-manager",
+      "worker": {
+        "expressRepoName": "my-gmail-manager-express-server",
+        "defaultPort": 3052,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/gmail/jobs/morning-inbox",
+        "authEnvKey": "GMAIL_MANAGER_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 60,
+        "timezone": "America/New_York",
+        "weekdays": [1, 2, 3, 4, 5],
+        "hourStart": 9,
+        "hourEnd": 10
+      },
+      "lifecycle": "start_if_needed_stop_if_started",
+      "enabledByDefault": true
+    },
+    {
+      "id": "gmail-manager-process-ai-queue",
+      "name": "Gmail Manager — process AI queue (serial)",
+      "workerProjectId": "my-gmail-manager",
+      "worker": {
+        "expressRepoName": "my-gmail-manager-express-server",
+        "defaultPort": 3052,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/gmail/jobs/process-ai-queue",
+        "authEnvKey": "GMAIL_MANAGER_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 5,
+        "timezone": "America/New_York",
+        "weekdays": [1, 2, 3, 4, 5],
+        "hourStart": 9,
+        "hourEnd": 18
+      },
+      "lifecycle": "start_if_needed_stop_if_started",
+      "enabledByDefault": true
+    },
+    {
+      "id": "gmail-manager-brief-inbox-if-ready",
+      "name": "Gmail Manager — brief inbox if AI queue empty",
+      "workerProjectId": "my-gmail-manager",
+      "worker": {
+        "expressRepoName": "my-gmail-manager-express-server",
+        "defaultPort": 3052,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/gmail/jobs/brief-inbox-if-ready",
+        "authEnvKey": "GMAIL_MANAGER_CRON_SECRET"
       },
       "schedule": {
         "kind": "interval",
         "intervalMinutes": 15,
         "timezone": "America/New_York",
         "weekdays": [1, 2, 3, 4, 5],
-        "hourStart": 8,
-        "hourEnd": 17
+        "hourStart": 10,
+        "hourEnd": 12
       },
       "lifecycle": "start_if_needed_stop_if_started",
       "enabledByDefault": true
     },
     {
-      "id": "city-nonprofits-social-publish-queue",
-      "name": "City Nonprofits — process due social publishes",
-      "workerProjectId": "city-nonprofits",
+      "id": "gmail-manager-enqueue-deletions",
+      "name": "Gmail Manager — enqueue deletions (backlog)",
+      "workerProjectId": "my-gmail-manager",
       "worker": {
-        "expressRepoName": "city-nonprofits-express-server",
-        "defaultPort": 3028,
+        "expressRepoName": "my-gmail-manager-express-server",
+        "defaultPort": 3052,
         "healthPath": "/api/health",
         "startCommand": "npm start"
       },
       "request": {
         "method": "POST",
-        "path": "/api/data/social-media-publish-queue/process-due",
-        "authEnvKey": "CITY_NONPROFITS_CRON_SECRET"
+        "path": "/api/gmail/jobs/enqueue-deletions",
+        "authEnvKey": "GMAIL_MANAGER_CRON_SECRET"
       },
       "schedule": {
         "kind": "interval",
-        "intervalMinutes": 5,
+        "intervalMinutes": 60,
         "timezone": "America/New_York",
-        "weekdays": [1, 2, 3, 4, 5, 6, 7],
-        "hourStart": 8,
-        "hourEnd": 22
+        "weekdays": [1, 2, 3, 4, 5],
+        "hourStart": 18,
+        "hourEnd": 19
+      },
+      "lifecycle": "start_if_needed_stop_if_started",
+      "enabledByDefault": false
+    },
+    {
+      "id": "gmail-manager-process-deletions",
+      "name": "Gmail Manager — process deletion queue",
+      "workerProjectId": "my-gmail-manager",
+      "worker": {
+        "expressRepoName": "my-gmail-manager-express-server",
+        "defaultPort": 3052,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/gmail/jobs/process-deletion-queue",
+        "authEnvKey": "GMAIL_MANAGER_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 30,
+        "timezone": "America/New_York",
+        "weekdays": [1, 2, 3, 4, 5],
+        "hourStart": 9,
+        "hourEnd": 18
       },
       "lifecycle": "start_if_needed_stop_if_started",
       "enabledByDefault": true

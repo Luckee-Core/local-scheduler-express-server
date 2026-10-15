@@ -41,9 +41,9 @@ BEFORE implementing ANY feature, you MUST:
 
 ## Managed clients & edge
 
-- MUST use `getManagedSupabaseClient()` / `getManagedAnthropicClient()` when added; NEVER `createClient()` in handlers, services, or data code.
-- MUST initialize managed clients once at startup; null-check before use → `500`.
-- Supabase edge functions MUST ONLY call Railway endpoints.
+- **This app:** MUST use `getManagedPgPool()` for database routes; NEVER `new Pool()` in handlers, services, or data code. Initialize pool once at startup; null-check before use → `500`. See ADR 004 appendix and ADR 009.
+- Other template apps: `getManagedSupabaseClient()` / `getManagedAnthropicClient()` when added.
+- Supabase edge functions MUST ONLY call Railway endpoints (N/A for local scheduler).
 
 ## Logging
 
@@ -58,3 +58,6 @@ Use emoji prefixes: `🚀` `✅` `❌` `📥` `📤` `🤖` `💾`
 - [005 – Edge functions Railway-only](./architecture/005-edge-functions-railway-only.md)
 - [006 – Logging & error response standards](./architecture/006-logging-and-error-response-standards.md)
 - [007 – Starter template layout](./architecture/007-starter-template-layout.md)
+- [008 – Domain models](./architecture/008-domain-models.md)
+- [009 – Local scheduler service](./architecture/009-local-scheduler-service.md)
+- [010 – No SQL functions](./architecture/010-no-sql-functions.md)

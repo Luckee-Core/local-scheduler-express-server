@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import type { MergedTask } from '../../data/task-registry/types';
+import type { MergedScheduledTask } from '../../model/scheduled-task';
 import { isExpressHealthOk } from '../../utils/worker';
 
 const getWorkersDir = (): string =>
@@ -42,7 +42,7 @@ export type SpawnWorkerResult = {
 /**
  * Spawns a worker Express process in the background.
  */
-export const spawnWorker = (task: MergedTask): SpawnWorkerResult => {
+export const spawnWorker = (task: MergedScheduledTask): SpawnWorkerResult => {
   if (!task.expressDir) {
     throw new Error(
       `Worker ${task.workerProjectId} has no expressDir in scheduler.local.json`,
@@ -85,11 +85,11 @@ export type EnsureWorkerReadyResult = {
 /**
  * Waits up to maxWaitMs for worker health.
  */
-export function waitForWorkerHealth(
+export const waitForWorkerHealth = (
   port: number,
   healthPath: string,
   maxWaitMs = 120000,
-): boolean {
+): boolean => {
   const started = Date.now();
   while (Date.now() - started < maxWaitMs) {
     if (isExpressHealthOk(port, healthPath)) {
@@ -98,12 +98,14 @@ export function waitForWorkerHealth(
     sleepMs(1000);
   }
   return isExpressHealthOk(port, healthPath);
-}
+};
 
 /**
  * Ensures worker is healthy; spawns if needed.
  */
-export const ensureWorkerReady = async (task: MergedTask): Promise<EnsureWorkerReadyResult> => {
+export const ensureWorkerReady = async (
+  task: MergedScheduledTask,
+): Promise<EnsureWorkerReadyResult> => {
   const baseUrl = `http://127.0.0.1:${task.port}`;
   const healthPath = task.worker.healthPath;
 

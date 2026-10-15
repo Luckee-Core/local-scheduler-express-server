@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
-import type { TaskSchedule } from '../../data/task-registry/types';
+import type { TaskSchedule } from '../../model/scheduled-task';
+import { isScheduleWeekday } from '../schedule/schedule-weekday';
 
 /**
  * True when now falls inside the task schedule window (weekday + hour range in task timezone).
@@ -9,10 +10,9 @@ export const isWithinScheduleWindow = (
   now: DateTime = DateTime.now(),
 ): boolean => {
   const zoned = now.setZone(schedule.timezone || 'America/New_York');
-  const weekday = zoned.weekday;
   const hour = zoned.hour;
   return (
-    schedule.weekdays.includes(weekday) &&
+    isScheduleWeekday(schedule.weekdays, zoned) &&
     hour >= schedule.hourStart &&
     hour < schedule.hourEnd
   );

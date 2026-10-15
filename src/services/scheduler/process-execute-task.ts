@@ -1,20 +1,48 @@
-import { appendRun } from '../../data/scheduler-run';
-import type { MergedTask } from '../../data/task-registry/types';
-import { isWithinScheduleWindow } from '../../utils/worker';
+import type { Pool } from 'pg';
+import { insertSchedulerRun } from '../../data/scheduler_runs';
+import type { MergedScheduledTask } from '../../model/scheduled-task';
 import {
   ensureWorkerReady,
   stopWorkerIfStartedByScheduler,
 } from '../worker-lifecycle/spawn-worker';
 
 export type ExecuteTaskInput = {
-  task: MergedTask;
+  pool: Pool;
+  task: MergedScheduledTask;
   trigger: 'scheduled' | 'manual';
-  skipScheduleWindow?: boolean;
 };
 
 export type ExecuteTaskResult = {
   runId: string;
   status: 'success' | 'failed' | 'skipped';
+};
+
+const persistRun = async (
+  pool: Pool,
+  input: {
+    taskId: string;
+    taskName: string;
+    startedAt: Date;
+    finishedAt: Date;
+    status: 'success' | 'failed' | 'skipped';
+    httpStatus: number | null;
+    error: string | null;
+    responseSummary: string | null;
+    trigger: 'scheduled' | 'manual';
+  },
+) => {
+  return insertSchedulerRun(pool, {
+    taskId: input.taskId,
+    taskName: input.taskName,
+    startedAt: input.startedAt.toISOString(),
+    finishedAt: input.finishedAt.toISOString(),
+    durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
+    status: input.status,
+    httpStatus: input.httpStatus,
+    error: input.error,
+    responseSummary: input.responseSummary,
+    trigger: input.trigger,
+  });
 };
 
 /**
@@ -23,37 +51,19 @@ export type ExecuteTaskResult = {
 export const processExecuteTask = async (
   input: ExecuteTaskInput,
 ): Promise<ExecuteTaskResult> => {
-  const { task, trigger, skipScheduleWindow = false } = input;
+  const { pool, task, trigger } = input;
   const startedAt = new Date();
 
   if (!task.enabled) {
     const finishedAt = new Date();
-    const run = appendRun({
+    const run = await persistRun(pool, {
       taskId: task.id,
       taskName: task.name,
-      startedAt: startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
+      startedAt,
+      finishedAt,
       status: 'skipped',
       httpStatus: null,
       error: 'Task is disabled',
-      responseSummary: null,
-      trigger,
-    });
-    return { runId: run.id, status: 'skipped' };
-  }
-
-  if (!skipScheduleWindow && trigger === 'scheduled' && !isWithinScheduleWindow(task.schedule)) {
-    const finishedAt = new Date();
-    const run = appendRun({
-      taskId: task.id,
-      taskName: task.name,
-      startedAt: startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
-      status: 'skipped',
-      httpStatus: null,
-      error: 'Outside schedule window',
       responseSummary: null,
       trigger,
     });
@@ -89,15 +99,14 @@ export const processExecuteTask = async (
 
     const text = await response.text();
     const finishedAt = new Date();
-    const summary = text.length > 500 ? `${text.slice(0, 500)}…` : text;
+    const summary = text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
 
     if (!response.ok) {
-      const run = appendRun({
+      const run = await persistRun(pool, {
         taskId: task.id,
         taskName: task.name,
-        startedAt: startedAt.toISOString(),
-        finishedAt: finishedAt.toISOString(),
-        durationMs: finishedAt.getTime() - startedAt.getTime(),
+        startedAt,
+        finishedAt,
         status: 'failed',
         httpStatus: response.status,
         error: `HTTP ${response.status}`,
@@ -107,12 +116,11 @@ export const processExecuteTask = async (
       return { runId: run.id, status: 'failed' };
     }
 
-    const run = appendRun({
+    const run = await persistRun(pool, {
       taskId: task.id,
       taskName: task.name,
-      startedAt: startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
+      startedAt,
+      finishedAt,
       status: 'success',
       httpStatus: response.status,
       error: null,
@@ -127,12 +135,11 @@ export const processExecuteTask = async (
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`❌ Task ${task.id} failed:`, message);
 
-    const run = appendRun({
+    const run = await persistRun(pool, {
       taskId: task.id,
       taskName: task.name,
-      startedAt: startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMs: finishedAt.getTime() - startedAt.getTime(),
+      startedAt,
+      finishedAt,
       status: 'failed',
       httpStatus: null,
       error: message,

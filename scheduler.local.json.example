@@ -8,14 +8,15 @@
     "city-nonprofits": {
       "expressDir": "/absolute/path/to/city-nonprofits-express-server",
       "port": 3028
-    }
-  },
-  "tasks": {
-    "lead-studio-email-queue": {
-      "enabled": true
     },
-    "city-nonprofits-social-publish-queue": {
-      "enabled": true
+    "philly-ai-consulting": {
+      "expressDir": "/absolute/path/to/philly-ai-consulting-express-server",
+      "port": 3044
+    },
+    "my-gmail-manager": {
+      "expressDir": "/absolute/path/to/my-gmail-manager-express-server",
+      "port": 3052,
+      "nvmSh": "/opt/homebrew/opt/nvm/nvm.sh"
     }
   }
 }

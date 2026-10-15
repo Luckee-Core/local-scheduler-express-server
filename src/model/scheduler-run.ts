@@ -1,8 +1,10 @@
 /**
- * Scheduler run record persisted as JSON on disk.
+ * Scheduler run domain types.
  */
 
 export type SchedulerRunStatus = 'success' | 'failed' | 'skipped';
+
+export type SchedulerRunTrigger = 'scheduled' | 'manual';
 
 export type SchedulerRun = {
   id: string;
@@ -15,7 +17,7 @@ export type SchedulerRun = {
   httpStatus: number | null;
   error: string | null;
   responseSummary: string | null;
-  trigger: 'scheduled' | 'manual';
+  trigger: SchedulerRunTrigger;
 };
 
-export type AppendRunInput = Omit<SchedulerRun, 'id'> & { id?: string };
+export type AppendSchedulerRunInput = Omit<SchedulerRun, 'id'> & { id?: string };

@@ -1,36 +1,44 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import { setupEarlyMiddleware, setupErrorHandling } from './src/services/middleware';
+import { createHealthRouter } from './src/services/health';
+import { createTasksRouter } from './src/services/tasks';
+import { createRunsRouter } from './src/services/runs';
+import { startServer } from './src/services/server';
+import { initializeScheduler } from './src/services/scheduler';
+import { getManagedPgPool, initializePgPool } from './src/services/managed';
 
 dotenv.config();
 
-const app = express();
 const PORT = Number(process.env.PORT) || 4120;
 
-import { setupEarlyMiddleware } from './src/services/middleware';
-setupEarlyMiddleware(app);
+const bootstrap = async (): Promise<void> => {
+  await initializePgPool();
 
-import { createHealthRouter } from './src/services/health';
-app.use('/', createHealthRouter());
-app.use('/api/health', createHealthRouter());
+  const app = express();
+  setupEarlyMiddleware(app);
 
-import { createTasksRouter } from './src/services/tasks';
-app.use('/api/tasks', createTasksRouter());
+  app.use('/api/health', createHealthRouter());
+  app.use('/api/tasks', createTasksRouter());
+  app.use('/api/runs', createRunsRouter());
 
-import { createRunsRouter } from './src/services/runs';
-app.use('/api/runs', createRunsRouter());
+  setupErrorHandling(app);
 
-import { setupErrorHandling } from './src/services/middleware';
-setupErrorHandling(app);
+  startServer(app, {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    onListen: () => {
+      const pool = getManagedPgPool();
+      if (pool) {
+        void initializeScheduler(pool);
+      } else {
+        console.error('❌ Scheduler not started — DATABASE_URL / pool unavailable');
+      }
+    },
+  });
+};
 
-import { startServer } from './src/services/server';
-import { initializeScheduler } from './src/services/scheduler';
-
-startServer(app, {
-  port: PORT,
-  environment: process.env.NODE_ENV || 'development',
-  onListen: () => {
-    initializeScheduler();
-  },
+bootstrap().catch((error) => {
+  console.error('❌ Failed during startup', error);
+  process.exit(1);
 });
-
-export default app;
