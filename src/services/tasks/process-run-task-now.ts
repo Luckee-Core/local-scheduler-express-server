@@ -3,7 +3,7 @@ import { processExecuteTask } from '../scheduler/process-execute-task';
 import { processGetScheduledTask } from './process-get-scheduled-task';
 
 /**
- * Runs a task immediately (manual trigger).
+ * Runs a task immediately (manual trigger). Ignores `enabled` and schedule windows.
  */
 export const processRunTaskNow = async (pool: Pool, taskId: string) => {
   const task = await processGetScheduledTask(pool, taskId);

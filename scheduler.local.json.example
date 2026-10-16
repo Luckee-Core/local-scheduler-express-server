@@ -3,7 +3,7 @@
     "lead-studio": {
       "expressDir": "/absolute/path/to/lead-studio-express-server",
       "port": 3032,
-      "nvmSh": "/opt/homebrew/opt/nvm/nvm.sh"
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
     },
     "city-nonprofits": {
       "expressDir": "/absolute/path/to/city-nonprofits-express-server",
@@ -16,7 +16,7 @@
     "my-gmail-manager": {
       "expressDir": "/absolute/path/to/my-gmail-manager-express-server",
       "port": 3052,
-      "nvmSh": "/opt/homebrew/opt/nvm/nvm.sh"
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
     }
   }
 }

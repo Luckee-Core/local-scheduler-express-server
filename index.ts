@@ -4,13 +4,14 @@ import { setupEarlyMiddleware, setupErrorHandling } from './src/services/middlew
 import { createHealthRouter } from './src/services/health';
 import { createTasksRouter } from './src/services/tasks';
 import { createRunsRouter } from './src/services/runs';
+import { createWorkersRouter } from './src/services/workers';
 import { startServer } from './src/services/server';
 import { initializeScheduler } from './src/services/scheduler';
 import { getManagedPgPool, initializePgPool } from './src/services/managed';
 
 dotenv.config();
 
-const PORT = Number(process.env.PORT) || 4120;
+const PORT = Number(process.env.PORT) || 3022;
 
 const bootstrap = async (): Promise<void> => {
   await initializePgPool();
@@ -21,6 +22,7 @@ const bootstrap = async (): Promise<void> => {
   app.use('/api/health', createHealthRouter());
   app.use('/api/tasks', createTasksRouter());
   app.use('/api/runs', createRunsRouter());
+  app.use('/api/workers', createWorkersRouter());
 
   setupErrorHandling(app);
 

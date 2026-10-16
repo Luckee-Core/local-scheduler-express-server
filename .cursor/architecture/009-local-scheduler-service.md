@@ -22,7 +22,7 @@ Accepted (supersedes “No database v1” in earlier drafts)
 - **`scheduled_tasks`** — task catalog (replaces committed `data/tasks.registry.json` at runtime).
 - **`scheduler_runs`** — run history (replaces `SCHEDULER_RUNS_DIR` JSON files).
 - **`scheduler.local.json`** (gitignored) — **worker machine paths only** (`workers.*.expressDir`, `port`, `nvmSh`). Per-task `enabled` lives in Postgres.
-- **Worker PID/logs** — still filesystem under `SCHEDULER_WORKERS_DIR` (default `/tmp/local-scheduler/workers/`).
+- **Worker PID/logs/manifests** — filesystem under `SCHEDULER_WORKERS_DIR` (default `/tmp/local-scheduler/workers/`): `{workerProjectId}.pid`, `.log`, `.manifest.json` (spawn phase and paths for Hub tail terminals).
 - Migrations in `sql/migrations/` per [010 – No SQL functions](./010-no-sql-functions.md).
 
 Seed: `data/tasks.registry.json` remains a **fixture** for `npm run db:seed`, not a runtime read path after cutover.
@@ -35,10 +35,11 @@ This app uses **`getManagedPgPool()`** from `src/services/managed/`, not Supabas
 
 | Service | Path | Role |
 |---------|------|------|
-| tasks | `src/services/tasks/` | `GET/POST/PATCH/DELETE /api/tasks`, `POST /api/tasks/:id/run-now` |
+| tasks | `src/services/tasks/` | `GET/POST/PATCH/DELETE /api/tasks`, `POST /api/tasks/:id/run-now` (manual run ignores `enabled` and schedule; cron does not) |
 | runs | `src/services/runs/` | `GET /api/runs`, `GET /api/runs/:id` |
+| workers | `src/services/workers/` | `GET /api/workers`, `GET /api/workers/:id`, `GET /api/workers/:id/logs` |
 | scheduler | `src/services/scheduler/` | In-process `node-cron`; `registerTaskJobs()` after boot and after task mutations |
-| worker-lifecycle | `src/services/worker-lifecycle/` | Health probe, spawn worker, stop if started by scheduler |
+| worker-lifecycle | `src/services/worker-lifecycle/` | Health probe, async wait with progress logs, spawn worker, stop if started by scheduler |
 
 ### Data layer
 
@@ -57,6 +58,11 @@ This app uses **`getManagedPgPool()`** from `src/services/managed/`, not Supabas
 
 - If worker health OK at tick start: call endpoint; **do not** stop worker afterward.
 - If scheduler spawned worker: `SIGTERM` after task completes (or fails).
+- **`scheduler.local.json` `dependsOn`:** optional per worker (e.g. `my-gmail-manager` → `my-gmail-manager-storage`). Dependencies start first; only PIDs the scheduler spawned are stopped afterward (reverse order). Use separate worker entries with `healthPath` / `startCommand` for Storage Express (`/api/storage/health`, port `3010`).
+- Spawn stdout/stderr append to `{workerProjectId}.log`; scheduler console logs `tail -f` path and health-wait progress every 10s.
+- Worker spawn shell runs `unset DATABASE_URL` before `npm start` so the scheduler’s `DATABASE_URL` (e.g. `local_scheduler`) does not override each worker’s `.env`.
+- Failed health waits attach worker log tail to `scheduler_runs` and thrown error message.
+- Luckee Hub may poll `GET /api/workers` and open `tail -F` PTYs on worker projects (see Hub ADR 022).
 
 ### Health
 

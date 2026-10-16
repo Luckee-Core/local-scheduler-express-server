@@ -1,10 +1,10 @@
 import type { Pool } from 'pg';
 import { insertSchedulerRun } from '../../data/scheduler_runs';
 import type { MergedScheduledTask } from '../../model/scheduled-task';
-import {
-  ensureWorkerReady,
-  stopWorkerIfStartedByScheduler,
-} from '../worker-lifecycle/spawn-worker';
+import { readWorkerLogTail } from '../../utils/worker/read-worker-log-tail';
+import { workerLogPath } from '../../utils/worker/worker-manifest';
+import { ensureTaskWorkersReady } from '../worker-lifecycle/ensure-task-workers-ready';
+import { stopWorkerIfStartedByScheduler } from '../worker-lifecycle/spawn-worker';
 
 export type ExecuteTaskInput = {
   pool: Pool;
@@ -16,6 +16,11 @@ export type ExecuteTaskResult = {
   runId: string;
   status: 'success' | 'failed' | 'skipped';
 };
+
+const RUN_SUMMARY_MAX = 4000;
+
+const truncateForRun = (value: string): string =>
+  value.length > RUN_SUMMARY_MAX ? `${value.slice(0, RUN_SUMMARY_MAX)}…` : value;
 
 const persistRun = async (
   pool: Pool,
@@ -47,6 +52,7 @@ const persistRun = async (
 
 /**
  * Runs one scheduled task against its worker HTTP endpoint.
+ * Manual runs always call the worker; only scheduled ticks honor `task.enabled`.
  */
 export const processExecuteTask = async (
   input: ExecuteTaskInput,
@@ -54,7 +60,7 @@ export const processExecuteTask = async (
   const { pool, task, trigger } = input;
   const startedAt = new Date();
 
-  if (!task.enabled) {
+  if (trigger === 'scheduled' && !task.enabled) {
     const finishedAt = new Date();
     const run = await persistRun(pool, {
       taskId: task.id,
@@ -70,11 +76,15 @@ export const processExecuteTask = async (
     return { runId: run.id, status: 'skipped' };
   }
 
-  let startedByScheduler = false;
+  const startedWorkerProjectIds: string[] = [];
 
   try {
-    const ready = await ensureWorkerReady(task);
-    startedByScheduler = ready.startedByScheduler;
+    console.log(`🚀 [processExecuteTask] Task ${task.id} (${trigger}) worker=${task.workerProjectId}`);
+    const ready = await ensureTaskWorkersReady(task, { taskId: task.id });
+    startedWorkerProjectIds.push(...ready.startedWorkerProjectIds);
+    if (ready.startedWorkerProjectIds.length > 0) {
+      console.log(`✅ [processExecuteTask] Spawned workers`, ready.startedWorkerProjectIds);
+    }
 
     const url = `${ready.baseUrl}${task.request.path}`;
     const headers: Record<string, string> = {
@@ -89,7 +99,7 @@ export const processExecuteTask = async (
       }
     }
 
-    console.log(`📥 ${task.request.method} ${url} (${trigger})`);
+    console.log(`📥 [processExecuteTask] ${task.request.method} ${url} (${trigger})`);
 
     const response = await fetch(url, {
       method: task.request.method,
@@ -99,9 +109,10 @@ export const processExecuteTask = async (
 
     const text = await response.text();
     const finishedAt = new Date();
-    const summary = text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
+    const summary = truncateForRun(text);
 
     if (!response.ok) {
+      console.log(`📤 [processExecuteTask] HTTP ${response.status} for ${task.id}`);
       const run = await persistRun(pool, {
         taskId: task.id,
         taskName: task.name,
@@ -128,12 +139,17 @@ export const processExecuteTask = async (
       trigger,
     });
 
-    console.log(`✅ Task ${task.id} completed (${run.durationMs}ms)`);
+    console.log(`✅ [processExecuteTask] Task ${task.id} completed (${run.durationMs}ms)`);
     return { runId: run.id, status: 'success' };
   } catch (error) {
     const finishedAt = new Date();
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`❌ Task ${task.id} failed:`, message);
+    console.error(`❌ [processExecuteTask] Task ${task.id} failed:`, message);
+
+    const logPath = workerLogPath(task.workerProjectId);
+    const tail = readWorkerLogTail(logPath, 30);
+    const responseSummary =
+      tail.length > 0 ? truncateForRun(`worker log (${logPath}):\n${tail}`) : null;
 
     const run = await persistRun(pool, {
       taskId: task.id,
@@ -142,14 +158,18 @@ export const processExecuteTask = async (
       finishedAt,
       status: 'failed',
       httpStatus: null,
-      error: message,
-      responseSummary: null,
+      error: truncateForRun(message),
+      responseSummary,
       trigger,
     });
     return { runId: run.id, status: 'failed' };
   } finally {
-    if (startedByScheduler) {
-      stopWorkerIfStartedByScheduler(task.workerProjectId);
+    if (startedWorkerProjectIds.length > 0) {
+      const stopOrder = [...startedWorkerProjectIds].reverse();
+      console.log(`📤 [processExecuteTask] Stopping scheduler-spawned workers`, stopOrder);
+      for (const workerProjectId of stopOrder) {
+        stopWorkerIfStartedByScheduler(workerProjectId);
+      }
     }
   }
 };

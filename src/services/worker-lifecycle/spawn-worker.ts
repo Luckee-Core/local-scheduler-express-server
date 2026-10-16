@@ -1,17 +1,21 @@
 import fs from 'fs';
-import path from 'path';
 import { spawn } from 'child_process';
-import type { MergedScheduledTask } from '../../model/scheduled-task';
-import { isExpressHealthOk } from '../../utils/worker';
+import type { SpawnableWorker } from '../../model/spawnable-worker';
+import { getWorkersDir } from '../../utils/worker/get-workers-dir';
+import { isExpressHealthOk, probeExpressHealth } from '../../utils/worker/index';
+import { readWorkerLogTail } from '../../utils/worker/read-worker-log-tail';
+import {
+  clearWorkerManifest,
+  workerLogPath,
+  workerPidPath,
+  writeWorkerManifest,
+} from '../../utils/worker/worker-manifest';
 
-const getWorkersDir = (): string =>
-  process.env.SCHEDULER_WORKERS_DIR?.trim() || '/tmp/local-scheduler/workers';
+const HEALTH_WAIT_MS = 120_000;
+const HEALTH_POLL_MS = 1_000;
+const HEALTH_PROGRESS_LOG_MS = 10_000;
 
-const pidFilePath = (workerProjectId: string): string => {
-  const dir = getWorkersDir();
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, `${workerProjectId}.pid`);
-};
+const pidFilePath = (workerProjectId: string): string => workerPidPath(workerProjectId);
 
 const readPid = (workerProjectId: string): number | null => {
   const filePath = pidFilePath(workerProjectId);
@@ -24,6 +28,7 @@ const readPid = (workerProjectId: string): number | null => {
 };
 
 const writePid = (workerProjectId: string, pid: number): void => {
+  fs.mkdirSync(getWorkersDir(), { recursive: true });
   fs.writeFileSync(pidFilePath(workerProjectId), String(pid), 'utf8');
 };
 
@@ -34,6 +39,11 @@ const clearPid = (workerProjectId: string): void => {
   }
 };
 
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
 export type SpawnWorkerResult = {
   pid: number;
   logPath: string;
@@ -42,18 +52,17 @@ export type SpawnWorkerResult = {
 /**
  * Spawns a worker Express process in the background.
  */
-export const spawnWorker = (task: MergedScheduledTask): SpawnWorkerResult => {
-  if (!task.expressDir) {
-    throw new Error(
-      `Worker ${task.workerProjectId} has no expressDir in scheduler.local.json`,
-    );
-  }
-
-  const logPath = path.join(getWorkersDir(), `${task.workerProjectId}.log`);
-  const nvmPrefix = task.nvmSh ? `source "${task.nvmSh}" && ` : '';
+export const spawnWorker = (worker: SpawnableWorker): SpawnWorkerResult => {
+  const logPath = workerLogPath(worker.workerProjectId);
+  fs.mkdirSync(getWorkersDir(), { recursive: true });
+  const nvmPrefix = worker.nvmSh ? `source "${worker.nvmSh}" && ` : '';
+  const runWorker =
+    `${nvmPrefix}unset DATABASE_URL && cd "${worker.expressDir}" && export PORT=${worker.port} && ${worker.startCommand}`;
+  // Redirect the whole shell session so nvm/cd/npm failures appear in the log file.
   const command =
-    `${nvmPrefix}cd "${task.expressDir}" && export PORT=${task.port} && ` +
-    `${task.worker.startCommand} >> "${logPath}" 2>&1`;
+    `exec >>"${logPath}" 2>&1; ` +
+    `echo "[spawn-worker] $(date -u +%Y-%m-%dT%H:%M:%SZ) starting ${worker.workerProjectId}"; ` +
+    `${runWorker} || echo "[spawn-worker] exit=$?"`;
 
   const child = spawn('/bin/zsh', ['-lc', command], {
     detached: true,
@@ -61,74 +70,149 @@ export const spawnWorker = (task: MergedScheduledTask): SpawnWorkerResult => {
   });
 
   if (!child.pid) {
-    throw new Error(`Failed to spawn worker for ${task.workerProjectId}`);
+    throw new Error(`Failed to spawn worker for ${worker.workerProjectId}`);
   }
 
   child.unref();
-  writePid(task.workerProjectId, child.pid);
+  writePid(worker.workerProjectId, child.pid);
 
   return { pid: child.pid, logPath };
 };
 
-const sleepMs = (ms: number): void => {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    // intentional busy wait
-  }
+export type EnsureWorkerReadyOptions = {
+  taskId?: string;
 };
 
 export type EnsureWorkerReadyResult = {
   startedByScheduler: boolean;
   baseUrl: string;
+  logPath: string;
 };
 
 /**
- * Waits up to maxWaitMs for worker health.
+ * Waits up to maxWaitMs for worker health with periodic progress logs.
  */
-export const waitForWorkerHealth = (
+export const waitForWorkerHealthAsync = async (
+  workerProjectId: string,
   port: number,
   healthPath: string,
-  maxWaitMs = 120000,
-): boolean => {
+  maxWaitMs = HEALTH_WAIT_MS,
+): Promise<boolean> => {
   const started = Date.now();
+  let lastProgressLog = started;
+
   while (Date.now() - started < maxWaitMs) {
-    if (isExpressHealthOk(port, healthPath)) {
+    const probe = probeExpressHealth(port, healthPath);
+    if (probe.ok) {
       return true;
     }
-    sleepMs(1000);
+
+    const now = Date.now();
+    if (now - lastProgressLog >= HEALTH_PROGRESS_LOG_MS) {
+      const elapsedSec = Math.round((now - started) / 1000);
+      console.log(
+        `⏳ [spawn-worker] Waiting for ${workerProjectId} health (${elapsedSec}s)`,
+        {
+          portListening: probe.portListening,
+          healthUrl: probe.healthUrl,
+          failureReason: probe.failureReason,
+        },
+      );
+      lastProgressLog = now;
+    }
+
+    await sleep(HEALTH_POLL_MS);
   }
+
   return isExpressHealthOk(port, healthPath);
+};
+
+const buildHealthTimeoutError = (
+  workerProjectId: string,
+  logPath: string,
+): Error => {
+  const tail = readWorkerLogTail(logPath, 40);
+  const tailBlock = tail.length > 0 ? `\n--- worker log tail ---\n${tail}` : '\n(worker log empty or missing)';
+  const message =
+    `Worker ${workerProjectId} did not become healthy within ${HEALTH_WAIT_MS / 1000}s` +
+    ` (log: ${logPath})${tailBlock}`;
+
+  console.error(`❌ [spawn-worker] ${message}`);
+  return new Error(message);
 };
 
 /**
  * Ensures worker is healthy; spawns if needed.
  */
 export const ensureWorkerReady = async (
-  task: MergedScheduledTask,
+  worker: SpawnableWorker,
+  options?: EnsureWorkerReadyOptions,
 ): Promise<EnsureWorkerReadyResult> => {
-  const baseUrl = `http://127.0.0.1:${task.port}`;
-  const healthPath = task.worker.healthPath;
+  const baseUrl = `http://127.0.0.1:${worker.port}`;
+  const healthPath = worker.healthPath;
+  const logPath = workerLogPath(worker.workerProjectId);
 
-  if (isExpressHealthOk(task.port, healthPath)) {
-    return { startedByScheduler: false, baseUrl };
+  if (isExpressHealthOk(worker.port, healthPath)) {
+    console.log(`✅ [spawn-worker] Worker ${worker.workerProjectId} already healthy on :${worker.port}`);
+    return { startedByScheduler: false, baseUrl, logPath };
   }
 
-  if (!task.expressDir) {
-    throw new Error(
-      `Worker ${task.workerProjectId} is not running and expressDir is not configured`,
-    );
-  }
+  console.log(`🚀 [spawn-worker] Starting worker ${worker.workerProjectId} on port ${worker.port}`);
+  const spawned = spawnWorker(worker);
 
-  console.log(`🚀 Starting worker ${task.workerProjectId} on port ${task.port}`);
-  spawnWorker(task);
+  writeWorkerManifest({
+    workerProjectId: worker.workerProjectId,
+    pid: spawned.pid,
+    port: worker.port,
+    logPath: spawned.logPath,
+    expressDir: worker.expressDir,
+    phase: 'starting',
+    taskId: options?.taskId ?? null,
+  });
 
-  const healthy = waitForWorkerHealth(task.port, healthPath);
+  console.log(`🚀 [spawn-worker] Spawned ${worker.workerProjectId}`, {
+    pid: spawned.pid,
+    port: worker.port,
+    expressDir: worker.expressDir,
+    logPath: spawned.logPath,
+    startCommand: worker.startCommand,
+    nvmSh: worker.nvmSh ? 'set' : 'unset',
+  });
+  console.log(`📋 [spawn-worker] Worker logs: tail -f ${spawned.logPath}`);
+
+  const healthy = await waitForWorkerHealthAsync(
+    worker.workerProjectId,
+    worker.port,
+    healthPath,
+  );
+
   if (!healthy) {
-    throw new Error(`Worker ${task.workerProjectId} did not become healthy within 120s`);
+    writeWorkerManifest({
+      workerProjectId: worker.workerProjectId,
+      pid: spawned.pid,
+      port: worker.port,
+      logPath: spawned.logPath,
+      expressDir: worker.expressDir,
+      phase: 'failed',
+      taskId: options?.taskId ?? null,
+    });
+    throw buildHealthTimeoutError(worker.workerProjectId, spawned.logPath);
   }
 
-  console.log(`✅ Worker ${task.workerProjectId} is healthy`);
-  return { startedByScheduler: true, baseUrl };
+  const now = new Date().toISOString();
+  writeWorkerManifest({
+    workerProjectId: worker.workerProjectId,
+    pid: spawned.pid,
+    port: worker.port,
+    logPath: spawned.logPath,
+    expressDir: worker.expressDir,
+    phase: 'healthy',
+    lastHealthAt: now,
+    taskId: options?.taskId ?? null,
+  });
+
+  console.log(`✅ [spawn-worker] Worker ${worker.workerProjectId} is healthy`);
+  return { startedByScheduler: true, baseUrl, logPath };
 };
 
 /**
@@ -142,11 +226,12 @@ export const stopWorkerIfStartedByScheduler = (workerProjectId: string): void =>
 
   try {
     process.kill(pid, 'SIGTERM');
-    console.log(`📤 Stopped worker ${workerProjectId} (pid ${pid})`);
+    console.log(`📤 [spawn-worker] Stopped worker ${workerProjectId} (pid ${pid})`);
   } catch (error) {
-    console.error(`❌ Failed to stop worker ${workerProjectId}:`, error);
+    console.error(`❌ [spawn-worker] Failed to stop worker ${workerProjectId}:`, error);
   } finally {
     clearPid(workerProjectId);
+    clearWorkerManifest(workerProjectId);
   }
 };
 

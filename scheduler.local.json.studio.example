@@ -1,0 +1,22 @@
+{
+  "workers": {
+    "my-gmail-manager-storage": {
+      "expressDir": "/Users/you/luckee/my-gmail-manager/my-gmail-manager-storage-express-server",
+      "port": 3010,
+      "healthPath": "/api/storage/health",
+      "startCommand": "npm start",
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
+    },
+    "my-gmail-manager": {
+      "expressDir": "/Users/you/luckee/my-gmail-manager/my-gmail-manager-express-server",
+      "port": 3052,
+      "dependsOn": ["my-gmail-manager-storage"],
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
+    },
+    "philly-ai-consulting": {
+      "expressDir": "/Users/you/luckee/philly-ai-consulting/philly-ai-consulting-express-server",
+      "port": 3044,
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
+    }
+  }
+}

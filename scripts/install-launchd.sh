@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Installs a macOS LaunchAgent to start local-scheduler-express-server on login.
+# Loads .env from repo root (DATABASE_URL, PORT, cron secrets).
 # Usage: ./scripts/install-launchd.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,6 +12,16 @@ PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 LOG_DIR="${HOME}/Library/Logs/local-scheduler"
 
 mkdir -p "${LOG_DIR}"
+
+# Default matches Luckee Hub projects.registry defaultApiPort (3022).
+DEFAULT_PORT=3022
+if [[ -f "${REPO_ROOT}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+DISPLAY_PORT="${PORT:-$DEFAULT_PORT}"
 
 cat > "${PLIST_PATH}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -23,7 +34,7 @@ cat > "${PLIST_PATH}" <<EOF
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>cd "${REPO_ROOT}" && npm start</string>
+    <string>cd "${REPO_ROOT}" &amp;&amp; set -a &amp;&amp; [ -f .env ] &amp;&amp; . ./.env; set +a &amp;&amp; npm start</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -33,11 +44,6 @@ cat > "${PLIST_PATH}" <<EOF
   <string>${LOG_DIR}/express.out.log</string>
   <key>StandardErrorPath</key>
   <string>${LOG_DIR}/express.err.log</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PORT</key>
-    <string>4120</string>
-  </dict>
 </dict>
 </plist>
 EOF
@@ -46,4 +52,6 @@ launchctl unload "${PLIST_PATH}" 2>/dev/null || true
 launchctl load "${PLIST_PATH}"
 
 echo "✅ Installed LaunchAgent: ${PLIST_PATH}"
+echo "   Expected URL: http://127.0.0.1:${DISPLAY_PORT}/api/health"
 echo "   Logs: ${LOG_DIR}/express.out.log"
+echo "   Ensure .env has DATABASE_URL and worker cron secrets."

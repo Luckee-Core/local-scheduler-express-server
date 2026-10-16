@@ -9,7 +9,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "db:seed": "ts-node scripts/seed-from-json.ts"
+    "db:seed": "ts-node scripts/seed-from-json.ts",
+    "db:setup": "bash scripts/setup-studio-db.sh && npm run db:seed"
   },
   "dependencies": {
     "cors": "^2.8.6",
