@@ -2,7 +2,7 @@
  * Scheduled task domain types (aligned with local-scheduler-web).
  */
 
-export type TaskSchedule = {
+export type IntervalTaskSchedule = {
   kind: 'interval';
   intervalMinutes: number;
   timezone: string;
@@ -10,6 +10,16 @@ export type TaskSchedule = {
   hourStart: number;
   hourEnd: number;
 };
+
+export type DailyTaskSchedule = {
+  kind: 'daily';
+  hour: number;
+  minute: number;
+  timezone: string;
+  weekdays: number[];
+};
+
+export type TaskSchedule = IntervalTaskSchedule | DailyTaskSchedule;
 
 export type TaskWorker = {
   expressRepoName: string;

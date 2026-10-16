@@ -50,7 +50,7 @@ This app uses **`getManagedPgPool()`** from `src/services/managed/`, not Supabas
 
 ### Cron and schedule windows
 
-- `node-cron` expressions include **weekday + hour range** from the task schedule (`buildCronExpression`); ticks outside the window do not run and are **not** recorded as runs. `processTick` still guards with `isWithinScheduleWindow` before execute.
+- `node-cron` expressions are **5-field** (minute hour dom month dow) from `buildCronExpression` — never emit a 6-field pattern with a leading `0`, or node-cron treats `*/N` as **every minute**. Weekday + hour range come from the task schedule; `processTick` also guards with `isWithinScheduleWindow`.
 - Global `tickInProgress` may skip overlapping ticks while one task is still running.
 
 ### Worker lifecycle

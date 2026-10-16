@@ -62,11 +62,42 @@ export const parseTaskRequest = (request: unknown): ParseResult<TaskRequest> => 
 /**
  * Parses schedule JSON from create/update bodies.
  */
+const parseScheduleWeekdays = (scheduleRec: Record<string, unknown>): number[] | null => {
+  const weekdays = Array.isArray(scheduleRec.weekdays)
+    ? scheduleRec.weekdays.filter((d): d is number => typeof d === 'number' && d >= 0 && d <= 6)
+    : [1, 2, 3, 4, 5];
+  if (weekdays.length === 0) {
+    return null;
+  }
+  return weekdays;
+};
+
 export const parseTaskSchedule = (schedule: unknown): ParseResult<TaskSchedule> => {
   if (!schedule || typeof schedule !== 'object') {
     return { success: false, error: 'schedule must be an object' };
   }
   const scheduleRec = schedule as Record<string, unknown>;
+  const timezone =
+    typeof scheduleRec.timezone === 'string' ? scheduleRec.timezone : 'America/New_York';
+  const weekdays = parseScheduleWeekdays(scheduleRec);
+  if (!weekdays) {
+    return { success: false, error: 'schedule.weekdays must include at least one day' };
+  }
+
+  const kind = scheduleRec.kind === 'daily' ? 'daily' : 'interval';
+
+  if (kind === 'daily') {
+    const hour = typeof scheduleRec.hour === 'number' ? scheduleRec.hour : 9;
+    const minute = typeof scheduleRec.minute === 'number' ? scheduleRec.minute : 0;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return { success: false, error: 'schedule.hour must be 0–23 and schedule.minute 0–59' };
+    }
+    return {
+      success: true,
+      data: { kind: 'daily', hour, minute, timezone, weekdays },
+    };
+  }
+
   const intervalMinutes = scheduleRec.intervalMinutes;
   if (typeof intervalMinutes !== 'number' || intervalMinutes < 1 || intervalMinutes > 1440) {
     return { success: false, error: 'schedule.intervalMinutes must be between 1 and 1440' };
@@ -76,19 +107,12 @@ export const parseTaskSchedule = (schedule: unknown): ParseResult<TaskSchedule> 
   if (hourStart < 0 || hourStart > 23 || hourEnd < 0 || hourEnd > 23) {
     return { success: false, error: 'schedule hourStart and hourEnd must be 0–23' };
   }
-  const weekdays = Array.isArray(scheduleRec.weekdays)
-    ? scheduleRec.weekdays.filter((d): d is number => typeof d === 'number' && d >= 0 && d <= 6)
-    : [1, 2, 3, 4, 5];
-  if (weekdays.length === 0) {
-    return { success: false, error: 'schedule.weekdays must include at least one day' };
-  }
   return {
     success: true,
     data: {
       kind: 'interval',
       intervalMinutes,
-      timezone:
-        typeof scheduleRec.timezone === 'string' ? scheduleRec.timezone : 'America/New_York',
+      timezone,
       weekdays,
       hourStart,
       hourEnd,

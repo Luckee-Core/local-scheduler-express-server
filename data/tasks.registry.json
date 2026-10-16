@@ -42,19 +42,18 @@
         "authEnvKey": "GMAIL_MANAGER_CRON_SECRET"
       },
       "schedule": {
-        "kind": "interval",
-        "intervalMinutes": 60,
+        "kind": "daily",
+        "hour": 9,
+        "minute": 0,
         "timezone": "America/New_York",
-        "weekdays": [1, 2, 3, 4, 5],
-        "hourStart": 9,
-        "hourEnd": 10
+        "weekdays": [1, 2, 3, 4, 5]
       },
       "lifecycle": "start_if_needed_stop_if_started",
       "enabledByDefault": true
     },
     {
       "id": "gmail-manager-process-ai-queue",
-      "name": "Gmail Manager — process AI queue (serial)",
+      "name": "Gmail Manager — drain AI queue (serial)",
       "workerProjectId": "my-gmail-manager",
       "worker": {
         "expressRepoName": "my-gmail-manager-express-server",

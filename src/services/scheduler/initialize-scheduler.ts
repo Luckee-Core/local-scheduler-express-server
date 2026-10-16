@@ -6,9 +6,10 @@ import { isWithinScheduleWindow } from '../../utils/worker';
 import { processGetScheduledTask } from '../tasks/process-get-scheduled-task';
 import { processExecuteTask } from './process-execute-task';
 
-let tickInProgress = false;
 const scheduledJobs: CronJob[] = [];
+const ticksInProgress = new Set<string>();
 let schedulerPool: Pool | null = null;
+let registerJobsPromise: Promise<void> = Promise.resolve();
 
 /**
  * Processes one scheduled tick for a task id.
@@ -19,12 +20,12 @@ export const processTick = async (taskId: string): Promise<void> => {
     return;
   }
 
-  if (tickInProgress) {
-    console.log('⏭️ Scheduler tick skipped — previous tick still running');
+  if (ticksInProgress.has(taskId)) {
+    console.log(`⏭️ Scheduler tick skipped — ${taskId} still running`);
     return;
   }
 
-  tickInProgress = true;
+  ticksInProgress.add(taskId);
   try {
     const task = await processGetScheduledTask(schedulerPool, taskId);
     if (!task) {
@@ -42,7 +43,7 @@ export const processTick = async (taskId: string): Promise<void> => {
       trigger: 'scheduled',
     });
   } finally {
-    tickInProgress = false;
+    ticksInProgress.delete(taskId);
   }
 };
 
@@ -50,33 +51,37 @@ export const processTick = async (taskId: string): Promise<void> => {
  * Registers node-cron jobs for all enabled tasks.
  */
 export const registerTaskJobs = async (pool: Pool): Promise<void> => {
-  schedulerPool = pool;
-  scheduledJobs.forEach((job) => job.stop());
-  scheduledJobs.length = 0;
+  registerJobsPromise = registerJobsPromise.then(async () => {
+    schedulerPool = pool;
+    scheduledJobs.forEach((job) => job.stop());
+    scheduledJobs.length = 0;
 
-  const rows = await listScheduledTasks(pool);
-  const tasks = rows.filter((task) => task.enabled);
+    const rows = await listScheduledTasks(pool);
+    const tasks = rows.filter((task) => task.enabled);
 
-  for (const task of tasks) {
-    const expression = buildCronExpression(task.schedule);
-    if (!expression) {
-      console.warn(
-        `⚠️ Skipping cron for ${task.id}: invalid or empty schedule window`,
+    for (const task of tasks) {
+      const expression = buildCronExpression(task.schedule);
+      if (!expression) {
+        console.warn(
+          `⚠️ Skipping cron for ${task.id}: invalid or empty schedule window`,
+        );
+        continue;
+      }
+
+      const job = cron.schedule(
+        expression,
+        () => {
+          void processTick(task.id);
+        },
+        { timezone: task.schedule.timezone },
       );
-      continue;
+
+      scheduledJobs.push(job);
+      console.log(`🕐 Registered cron for ${task.id}: ${expression} (${task.schedule.timezone})`);
     }
+  });
 
-    const job = cron.schedule(
-      expression,
-      () => {
-        void processTick(task.id);
-      },
-      { timezone: task.schedule.timezone },
-    );
-
-    scheduledJobs.push(job);
-    console.log(`🕐 Registered cron for ${task.id}: ${expression} (${task.schedule.timezone})`);
-  }
+  await registerJobsPromise;
 };
 
 /**
