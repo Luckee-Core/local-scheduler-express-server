@@ -68,11 +68,11 @@
       },
       "schedule": {
         "kind": "interval",
-        "intervalMinutes": 5,
+        "intervalMinutes": 60,
         "timezone": "America/New_York",
         "weekdays": [1, 2, 3, 4, 5],
-        "hourStart": 9,
-        "hourEnd": 18
+        "hourStart": 7,
+        "hourEnd": 21
       },
       "lifecycle": "start_if_needed_stop_if_started",
       "enabledByDefault": true
