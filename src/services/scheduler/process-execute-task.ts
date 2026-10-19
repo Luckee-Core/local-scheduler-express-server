@@ -1,6 +1,10 @@
 import type { Pool } from 'pg';
+import { getSchedulerProjectRepoById } from '../../data/scheduler_project_repo';
 import { insertSchedulerRun } from '../../data/scheduler_runs';
+import { readSchedulerLocal } from '../../data/worker-local-config';
 import type { MergedScheduledTask } from '../../model/scheduled-task';
+import { ensureProductionHealth } from '../../utils/scheduler/ensure-production-health';
+import { resolveTaskExecutionTarget } from '../../utils/scheduler/resolve-task-execution-target';
 import { readWorkerLogTail } from '../../utils/worker/read-worker-log-tail';
 import { workerLogPath } from '../../utils/worker/worker-manifest';
 import { ensureTaskWorkersReady } from '../worker-lifecycle/ensure-task-workers-ready';
@@ -77,26 +81,47 @@ export const processExecuteTask = async (
   }
 
   const startedWorkerProjectIds: string[] = [];
+  let skipWorkerLifecycle = task.schedulerProjectRepo.executionType === 'production';
 
   try {
-    console.log(`🚀 [processExecuteTask] Task ${task.id} (${trigger}) worker=${task.workerProjectId}`);
-    const ready = await ensureTaskWorkersReady(task, { taskId: task.id });
-    startedWorkerProjectIds.push(...ready.startedWorkerProjectIds);
-    if (ready.startedWorkerProjectIds.length > 0) {
-      console.log(`✅ [processExecuteTask] Spawned workers`, ready.startedWorkerProjectIds);
+    console.log(
+      `🚀 [processExecuteTask] Task ${task.id} (${trigger}) repo=${task.schedulerProjectRepoId} type=${task.schedulerProjectRepo.executionType}`,
+    );
+
+    const repoRow = await getSchedulerProjectRepoById(pool, task.schedulerProjectRepoId);
+    if (!repoRow) {
+      throw new Error(`Scheduler project repo not found: ${task.schedulerProjectRepoId}`);
     }
 
-    const url = `${ready.baseUrl}${task.request.path}`;
+    const local = readSchedulerLocal();
+    const target = resolveTaskExecutionTarget(task, repoRow, local);
+    skipWorkerLifecycle = target.skipWorkerLifecycle;
+
+    let baseUrl = target.baseUrl;
+
+    if (target.skipWorkerLifecycle) {
+      await ensureProductionHealth(target.healthUrl);
+    } else {
+      const ready = await ensureTaskWorkersReady(task, { taskId: task.id });
+      startedWorkerProjectIds.push(...ready.startedWorkerProjectIds);
+      baseUrl = ready.baseUrl;
+      if (ready.startedWorkerProjectIds.length > 0) {
+        console.log(`✅ [processExecuteTask] Spawned workers`, ready.startedWorkerProjectIds);
+      }
+    }
+
+    const url = `${baseUrl}${task.request.path}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
     if (task.request.authEnvKey) {
-      const secret = process.env[task.request.authEnvKey];
-      if (secret) {
-        headers.Authorization = `Bearer ${secret}`;
-        headers['x-cron-secret'] = secret;
+      const secret = process.env[task.request.authEnvKey]?.trim();
+      if (!secret) {
+        throw new Error(`Missing env ${task.request.authEnvKey} for task ${task.id}`);
       }
+      headers.Authorization = `Bearer ${secret}`;
+      headers['x-cron-secret'] = secret;
     }
 
     console.log(`📥 [processExecuteTask] ${task.request.method} ${url} (${trigger})`);
@@ -139,17 +164,21 @@ export const processExecuteTask = async (
       trigger,
     });
 
-    console.log(`✅ [processExecuteTask] Task ${task.id} completed (${run.durationMs}ms)`);
+    console.log(`✅ [processExecuteTask] Task ${task.id} completed`);
     return { runId: run.id, status: 'success' };
   } catch (error) {
     const finishedAt = new Date();
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`❌ [processExecuteTask] Task ${task.id} failed:`, message);
 
-    const logPath = workerLogPath(task.workerProjectId);
-    const tail = readWorkerLogTail(logPath, 30);
-    const responseSummary =
-      tail.length > 0 ? truncateForRun(`worker log (${logPath}):\n${tail}`) : null;
+    let responseSummary: string | null = null;
+    if (!skipWorkerLifecycle) {
+      const logPath = workerLogPath(task.workerProjectId);
+      const tail = readWorkerLogTail(logPath, 30);
+      if (tail.length > 0) {
+        responseSummary = truncateForRun(`worker log (${logPath}):\n${tail}`);
+      }
+    }
 
     const run = await persistRun(pool, {
       taskId: task.id,

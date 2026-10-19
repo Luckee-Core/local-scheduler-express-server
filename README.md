@@ -40,14 +40,20 @@ curl http://127.0.0.1:3022/api/tasks
 |------------|---------|
 | `DATABASE_URL` | Local Postgres `local_scheduler` |
 | `scheduler.local.json` | Machine worker paths (gitignored); optional `dependsOn`, `healthPath` for storage workers; see `scheduler.local.json.studio.example` |
+| `data/scheduler-project.registry.json` | Seed fixture for scheduler businesses |
+| `data/scheduler-project-repo.registry.json` | Seed fixture for deploy targets (`execution_type`, production URL) |
 | `data/tasks.registry.json` | Seed fixture for `npm run db:seed` |
-| `.env` | `PORT`, `SCHEDULER_WORKERS_DIR`; worker secrets (`GMAIL_MANAGER_CRON_SECRET`, etc.) |
+| `.env` | `PORT`, `SCHEDULER_WORKERS_DIR`; worker secrets (`GMAIL_MANAGER_CRON_SECRET`, `CITY_NONPROFITS_CRON_SECRET`, etc.) |
+
+**City Nonprofits Monday digest:** seeded tasks call **production** Railway via `scheduler_project_repo` (`call_only`); keep them disabled while Supabase pg_cron runs in prod. Set `CITY_NONPROFITS_CRON_SECRET` to match `city-nonprofits-express-server`. `scheduler.local.json` worker keys must match `scheduler_project_repo.id`.
 
 Gmail dispatcher on the same Mac as cron: `my-gmail-manager-express-server/.env.studio-cron.example`.
 
 ## API
 
 - `GET /api/health` — health + `database` status
+- `GET /api/projects` — scheduler businesses; `GET /api/projects/:id/repos` — repos for a business
+- `GET /api/project-repos` — all deploy targets (`execution_type`, production URL)
 - `GET /api/tasks` — merged tasks
 - `POST /api/tasks` — create task (`?upsert=true` to update by id)
 - `PATCH /api/tasks/:id` — update fields including `enabled`

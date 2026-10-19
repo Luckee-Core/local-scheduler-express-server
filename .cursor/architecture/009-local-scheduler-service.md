@@ -19,7 +19,9 @@ Accepted (supersedes “No database v1” in earlier drafts)
 ### Persistence v2 (local Postgres)
 
 - **`DATABASE_URL`** — local Postgres database (e.g. `local_scheduler`).
-- **`scheduled_tasks`** — task catalog (replaces committed `data/tasks.registry.json` at runtime).
+- **`scheduler_project`** — business catalog; see [012](./012-scheduler-projects-and-execution-targets.md).
+- **`scheduler_project_repo`** — deploy target per Express repo (`execution_type`, production URL).
+- **`scheduled_tasks`** — task catalog; `scheduler_project_repo_id` FK.
 - **`scheduler_runs`** — run history (replaces `SCHEDULER_RUNS_DIR` JSON files).
 - **`scheduler.local.json`** (gitignored) — **worker machine paths only** (`workers.*.expressDir`, `port`, `nvmSh`). Per-task `enabled` lives in Postgres.
 - **Worker PID/logs/manifests** — filesystem under `SCHEDULER_WORKERS_DIR` (default `/tmp/local-scheduler/workers/`): `{workerProjectId}.pid`, `.log`, `.manifest.json` (spawn phase and paths for Hub tail terminals).
@@ -36,6 +38,8 @@ This app uses **`getManagedPgPool()`** from `src/services/managed/`, not Supabas
 | Service | Path | Role |
 |---------|------|------|
 | tasks | `src/services/tasks/` | `GET/POST/PATCH/DELETE /api/tasks`, `POST /api/tasks/:id/run-now` (manual run ignores `enabled` and schedule; cron does not) |
+| projects | `src/services/projects/` | `GET /api/projects`, `GET /api/projects/:id`, `GET /api/projects/:id/repos` |
+| project-repos | `src/services/project-repos/` | `GET /api/project-repos`, `GET /api/project-repos/:id` |
 | runs | `src/services/runs/` | `GET /api/runs`, `GET /api/runs/:id` |
 | workers | `src/services/workers/` | `GET /api/workers`, `GET /api/workers/:id`, `GET /api/workers/:id/logs` |
 | scheduler | `src/services/scheduler/` | In-process `node-cron`; `registerTaskJobs()` after boot and after task mutations |
@@ -45,6 +49,8 @@ This app uses **`getManagedPgPool()`** from `src/services/managed/`, not Supabas
 
 | Path | Role |
 |------|------|
+| `src/data/scheduler_project/` | CRUD for `scheduler_project` table |
+| `src/data/scheduler_project_repo/` | CRUD for `scheduler_project_repo` table |
 | `src/data/scheduled_tasks/` | CRUD for `scheduled_tasks` table |
 | `src/data/scheduler_runs/` | CRUD for `scheduler_runs` table |
 | `src/data/worker-local-config/` | Read/write `scheduler.local.json` (workers only) |

@@ -17,3 +17,16 @@ export type {
 } from './scheduler-run';
 
 export type { SchedulerLocalWorker, SchedulerLocalFile } from './worker-local-config';
+
+export type {
+  SchedulerProjectRow,
+  MergedSchedulerProject,
+  UpsertSchedulerProjectInput,
+} from './scheduler-project';
+
+export type {
+  SchedulerExecutionType,
+  SchedulerProjectRepoRow,
+  MergedSchedulerProjectRepo,
+  UpsertSchedulerProjectRepoInput,
+} from './scheduler-project-repo';

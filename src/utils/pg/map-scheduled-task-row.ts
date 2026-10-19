@@ -4,6 +4,7 @@ type DbScheduledTaskRow = {
   id: string;
   name: string;
   worker_project_id: string;
+  scheduler_project_repo_id: string;
   enabled: boolean;
   worker: ScheduledTaskRow['worker'];
   request: ScheduledTaskRow['request'];
@@ -20,6 +21,7 @@ export const mapScheduledTaskRow = (row: DbScheduledTaskRow): ScheduledTaskRow =
   id: row.id,
   name: row.name,
   workerProjectId: row.worker_project_id,
+  schedulerProjectRepoId: row.scheduler_project_repo_id,
   enabled: row.enabled,
   worker: row.worker,
   request: row.request,

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Creates local_scheduler, applies migration 001, reminds to seed.
+# Creates local_scheduler, applies sql/migrations/*.sql, reminds to seed.
 # Usage: ./scripts/setup-studio-db.sh
 # Requires: createdb, psql on PATH; optional .env with DATABASE_URL
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-MIGRATION="${REPO_ROOT}/sql/migrations/001_scheduled_tasks_and_runs.sql"
+MIGRATIONS_DIR="${REPO_ROOT}/sql/migrations"
 
 if [[ -f "${REPO_ROOT}/.env" ]]; then
   set -a
@@ -44,8 +44,11 @@ if ! psql "${DATABASE_URL}" -c "SELECT 1" >/dev/null 2>&1; then
   createdb "${DB_NAME}"
 fi
 
-echo "📦 Applying ${MIGRATION}…"
-psql "${DATABASE_URL}" -f "${MIGRATION}"
+echo "📦 Applying migrations from ${MIGRATIONS_DIR}…"
+for migration in "${MIGRATIONS_DIR}"/*.sql; do
+  echo "   → $(basename "${migration}")"
+  psql "${DATABASE_URL}" -f "${migration}"
+done
 
 echo "✅ Schema ready on ${DATABASE_URL}"
 echo "   Next: ensure DATABASE_URL is in .env, then run: npm run db:seed"

@@ -11,7 +11,7 @@ export const updateScheduledTask = async (
   input: UpdateScheduledTaskInput,
 ): Promise<ScheduledTaskRow | null> => {
   const existing = await pool.query(
-    `SELECT id, name, worker_project_id, enabled, worker, request, schedule, lifecycle, created_at, updated_at
+    `SELECT id, name, worker_project_id, scheduler_project_repo_id, enabled, worker, request, schedule, lifecycle, created_at, updated_at
      FROM scheduled_tasks WHERE id = $1`,
     [id],
   );
@@ -23,7 +23,8 @@ export const updateScheduledTask = async (
   const now = new Date().toISOString();
 
   const name = input.name ?? row.name;
-  const workerProjectId = input.workerProjectId ?? row.workerProjectId;
+  const schedulerProjectRepoId = input.schedulerProjectRepoId ?? row.schedulerProjectRepoId;
+  const workerProjectId = input.workerProjectId ?? schedulerProjectRepoId;
   const enabled = input.enabled ?? row.enabled;
   const worker = input.worker ?? row.worker;
   const request = input.request ?? row.request;
@@ -34,18 +35,20 @@ export const updateScheduledTask = async (
     `UPDATE scheduled_tasks SET
       name = $2,
       worker_project_id = $3,
-      enabled = $4,
-      worker = $5::jsonb,
-      request = $6::jsonb,
-      schedule = $7::jsonb,
-      lifecycle = $8,
-      updated_at = $9::timestamptz
+      scheduler_project_repo_id = $4,
+      enabled = $5,
+      worker = $6::jsonb,
+      request = $7::jsonb,
+      schedule = $8::jsonb,
+      lifecycle = $9,
+      updated_at = $10::timestamptz
      WHERE id = $1
-     RETURNING id, name, worker_project_id, enabled, worker, request, schedule, lifecycle, created_at, updated_at`,
+     RETURNING id, name, worker_project_id, scheduler_project_repo_id, enabled, worker, request, schedule, lifecycle, created_at, updated_at`,
     [
       id,
       name,
       workerProjectId,
+      schedulerProjectRepoId,
       enabled,
       JSON.stringify(worker),
       JSON.stringify(request),

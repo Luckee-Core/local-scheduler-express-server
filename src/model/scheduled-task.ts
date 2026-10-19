@@ -2,6 +2,9 @@
  * Scheduled task domain types (aligned with local-scheduler-web).
  */
 
+import type { MergedSchedulerProject } from './scheduler-project';
+import type { MergedSchedulerProjectRepo } from './scheduler-project-repo';
+
 export type IntervalTaskSchedule = {
   kind: 'interval';
   intervalMinutes: number;
@@ -34,12 +37,13 @@ export type TaskRequest = {
   authEnvKey?: string;
 };
 
-export type ScheduledTaskLifecycle = 'start_if_needed_stop_if_started';
+export type ScheduledTaskLifecycle = 'start_if_needed_stop_if_started' | 'call_only';
 
 export type ScheduledTaskRow = {
   id: string;
   name: string;
   workerProjectId: string;
+  schedulerProjectRepoId: string;
   enabled: boolean;
   worker: TaskWorker;
   request: TaskRequest;
@@ -53,6 +57,7 @@ export type CreateScheduledTaskInput = {
   id: string;
   name: string;
   workerProjectId: string;
+  schedulerProjectRepoId?: string;
   enabled?: boolean;
   worker: TaskWorker;
   request: TaskRequest;
@@ -63,6 +68,7 @@ export type CreateScheduledTaskInput = {
 export type UpdateScheduledTaskInput = {
   name?: string;
   workerProjectId?: string;
+  schedulerProjectRepoId?: string;
   enabled?: boolean;
   worker?: TaskWorker;
   request?: TaskRequest;
@@ -75,6 +81,10 @@ export type MergedScheduledTask = {
   id: string;
   name: string;
   workerProjectId: string;
+  schedulerProjectRepoId: string;
+  schedulerProject: MergedSchedulerProject;
+  schedulerProjectRepo: MergedSchedulerProjectRepo;
+  executionTarget: string;
   worker: TaskWorker;
   request: TaskRequest;
   schedule: TaskSchedule;

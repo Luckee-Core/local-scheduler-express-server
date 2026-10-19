@@ -1,0 +1,34 @@
+{
+  "repos": [
+    {
+      "id": "my-gmail-manager",
+      "schedulerProjectId": "my-gmail-manager",
+      "expressRepoName": "my-gmail-manager-express-server",
+      "executionType": "local",
+      "defaultPort": 3052
+    },
+    {
+      "id": "my-gmail-manager-storage",
+      "schedulerProjectId": "my-gmail-manager",
+      "expressRepoName": "my-gmail-manager-storage-express-server",
+      "executionType": "local",
+      "defaultPort": 3010
+    },
+    {
+      "id": "philly-ai-consulting",
+      "schedulerProjectId": "philly-ai-consulting",
+      "expressRepoName": "philly-ai-consulting-express-server",
+      "executionType": "local",
+      "defaultPort": 3044
+    },
+    {
+      "id": "city-nonprofits",
+      "schedulerProjectId": "city-nonprofits",
+      "expressRepoName": "city-nonprofits-express-server",
+      "executionType": "production",
+      "productionBaseUrl": "https://city-nonprofits-express-server-production-ba3c.up.railway.app",
+      "defaultPort": 3028,
+      "healthPath": "/api/health"
+    }
+  ]
+}

@@ -10,7 +10,7 @@ export const getScheduledTaskById = async (
   id: string,
 ): Promise<ScheduledTaskRow | null> => {
   const result = await pool.query(
-    `SELECT id, name, worker_project_id, enabled, worker, request, schedule, lifecycle, created_at, updated_at
+    `SELECT id, name, worker_project_id, scheduler_project_repo_id, enabled, worker, request, schedule, lifecycle, created_at, updated_at
      FROM scheduled_tasks
      WHERE id = $1`,
     [id],

@@ -154,6 +154,111 @@
       },
       "lifecycle": "start_if_needed_stop_if_started",
       "enabledByDefault": true
+    },
+    {
+      "id": "city-nonprofits-monday-digest-enqueue",
+      "name": "City Nonprofits — Monday digest enqueue",
+      "workerProjectId": "city-nonprofits",
+      "schedulerProjectRepoId": "city-nonprofits",
+      "worker": {
+        "expressRepoName": "city-nonprofits-express-server",
+        "defaultPort": 3028,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/newsletter/digest/enqueue",
+        "authEnvKey": "CITY_NONPROFITS_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "daily",
+        "hour": 5,
+        "minute": 0,
+        "timezone": "America/New_York",
+        "weekdays": [1]
+      },
+      "lifecycle": "call_only",
+      "enabledByDefault": false
+    },
+    {
+      "id": "city-nonprofits-monday-digest-process-due",
+      "name": "City Nonprofits — Monday digest process due",
+      "workerProjectId": "city-nonprofits",
+      "schedulerProjectRepoId": "city-nonprofits",
+      "worker": {
+        "expressRepoName": "city-nonprofits-express-server",
+        "defaultPort": 3028,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/newsletter/digest/process-due",
+        "authEnvKey": "CITY_NONPROFITS_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "interval",
+        "intervalMinutes": 4,
+        "timezone": "America/New_York",
+        "weekdays": [1],
+        "hourStart": 5,
+        "hourEnd": 13
+      },
+      "lifecycle": "call_only",
+      "enabledByDefault": false
+    },
+    {
+      "id": "city-nonprofits-test-monday-digest-enqueue",
+      "name": "City Nonprofits — test Monday digest enqueue",
+      "workerProjectId": "city-nonprofits",
+      "schedulerProjectRepoId": "city-nonprofits",
+      "worker": {
+        "expressRepoName": "city-nonprofits-express-server",
+        "defaultPort": 3028,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/newsletter/digest/test-monday-digest-enqueue",
+        "authEnvKey": "CITY_NONPROFITS_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "daily",
+        "hour": 5,
+        "minute": 0,
+        "timezone": "America/New_York",
+        "weekdays": [1]
+      },
+      "lifecycle": "call_only",
+      "enabledByDefault": false
+    },
+    {
+      "id": "city-nonprofits-test-monday-digest-process-due",
+      "name": "City Nonprofits — test Monday digest process due",
+      "workerProjectId": "city-nonprofits",
+      "schedulerProjectRepoId": "city-nonprofits",
+      "worker": {
+        "expressRepoName": "city-nonprofits-express-server",
+        "defaultPort": 3028,
+        "healthPath": "/api/health",
+        "startCommand": "npm start"
+      },
+      "request": {
+        "method": "POST",
+        "path": "/api/newsletter/digest/test-monday-digest-process-due",
+        "authEnvKey": "CITY_NONPROFITS_CRON_SECRET"
+      },
+      "schedule": {
+        "kind": "daily",
+        "hour": 5,
+        "minute": 5,
+        "timezone": "America/New_York",
+        "weekdays": [1]
+      },
+      "lifecycle": "call_only",
+      "enabledByDefault": false
     }
   ]
 }

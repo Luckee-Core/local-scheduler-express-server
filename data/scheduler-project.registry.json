@@ -1,0 +1,7 @@
+{
+  "projects": [
+    { "id": "my-gmail-manager", "name": "Gmail Manager" },
+    { "id": "philly-ai-consulting", "name": "Philly AI Consulting" },
+    { "id": "city-nonprofits", "name": "Philly Nonprofits" }
+  ]
+}

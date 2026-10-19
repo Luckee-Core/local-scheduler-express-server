@@ -5,6 +5,8 @@ import { createHealthRouter } from './src/services/health';
 import { createTasksRouter } from './src/services/tasks';
 import { createRunsRouter } from './src/services/runs';
 import { createWorkersRouter } from './src/services/workers';
+import { createProjectsRouter } from './src/services/projects';
+import { createProjectReposRouter } from './src/services/project-repos';
 import { startServer } from './src/services/server';
 import { initializeScheduler } from './src/services/scheduler';
 import { getManagedPgPool, initializePgPool } from './src/services/managed';
@@ -21,6 +23,8 @@ const bootstrap = async (): Promise<void> => {
 
   app.use('/api/health', createHealthRouter());
   app.use('/api/tasks', createTasksRouter());
+  app.use('/api/projects', createProjectsRouter());
+  app.use('/api/project-repos', createProjectReposRouter());
   app.use('/api/runs', createRunsRouter());
   app.use('/api/workers', createWorkersRouter());
 

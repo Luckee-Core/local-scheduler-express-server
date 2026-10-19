@@ -1,5 +1,10 @@
-import type { UpdateScheduledTaskInput } from '../../../model/scheduled-task';
+import type { ScheduledTaskLifecycle, UpdateScheduledTaskInput } from '../../../model/scheduled-task';
 import { parseTaskRequest, parseTaskSchedule, parseTaskWorker } from './parse-task-nested-fields';
+
+const LIFECYCLE_VALUES: ScheduledTaskLifecycle[] = [
+  'start_if_needed_stop_if_started',
+  'call_only',
+];
 
 type ValidationResult =
   | { success: true; data: UpdateScheduledTaskInput }
@@ -28,6 +33,14 @@ export const validateUpdateScheduledTaskBody = (body: unknown): ValidationResult
       return { success: false, error: 'workerProjectId must be a non-empty string' };
     }
     data.workerProjectId = record.workerProjectId.trim();
+  }
+
+  const repoIdRaw = record.schedulerProjectRepoId ?? record.schedulerProjectId;
+  if (repoIdRaw !== undefined) {
+    if (typeof repoIdRaw !== 'string' || repoIdRaw.trim().length === 0) {
+      return { success: false, error: 'schedulerProjectRepoId must be a non-empty string' };
+    }
+    data.schedulerProjectRepoId = repoIdRaw.trim();
   }
 
   if (record.enabled !== undefined) {
@@ -62,15 +75,19 @@ export const validateUpdateScheduledTaskBody = (body: unknown): ValidationResult
   }
 
   if (record.lifecycle !== undefined) {
-    if (record.lifecycle !== 'start_if_needed_stop_if_started') {
-      return { success: false, error: 'lifecycle must be start_if_needed_stop_if_started' };
+    if (
+      typeof record.lifecycle !== 'string' ||
+      !LIFECYCLE_VALUES.includes(record.lifecycle as ScheduledTaskLifecycle)
+    ) {
+      return {
+        success: false,
+        error: 'lifecycle must be start_if_needed_stop_if_started or call_only',
+      };
     }
-    data.lifecycle = record.lifecycle;
+    data.lifecycle = record.lifecycle as ScheduledTaskLifecycle;
   }
 
-  if (
-    Object.keys(data).length === 0
-  ) {
+  if (Object.keys(data).length === 0) {
     return { success: false, error: 'No updatable fields provided' };
   }
 

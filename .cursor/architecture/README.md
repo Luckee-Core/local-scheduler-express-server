@@ -14,7 +14,8 @@ ADRs for **express-server-template** and apps created from it.
 8. [008 – Domain models (`src/model`)](./008-domain-models.md) — table row + write-input types; never `src/data/{table}/types.ts`.
 9. [009 – Local scheduler service](./009-local-scheduler-service.md) — Localhost daemon, Postgres, cron, worker lifecycle.
 10. [010 – No SQL functions](./010-no-sql-functions.md) — tables, indexes, grants, RLS only; `updated_at` in CRUD.
-11. [011 – Remote worker base URL](./011-remote-worker-base-url.md) — proposed; cron host vs API host without co-located spawn.
+11. [011 – Remote worker base URL](./011-remote-worker-base-url.md) — production HTTPS via projects; LAN `baseUrl` still future.
+12. [012 – Scheduler projects and execution targets](./012-scheduler-projects-and-execution-targets.md) — `local` vs `production`, `call_only`, merged `executionTarget`.
 
 Stripe ADR (009 in template) is **not applicable** to this repo.
 
