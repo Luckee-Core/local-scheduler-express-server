@@ -107,8 +107,8 @@ VALUES
     'city-nonprofits',
     'city-nonprofits',
     'city-nonprofits-express-server',
-    'production',
-    'https://city-nonprofits-express-server-production-ba3c.up.railway.app',
+    'local',
+    NULL,
     3028,
     '/api/health'
   )

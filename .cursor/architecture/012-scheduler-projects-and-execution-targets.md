@@ -55,6 +55,14 @@ Merged tasks: `schedulerProject`, `schedulerProjectRepo`, `executionTarget`.
 - `GET /api/projects/:id/repos` — repos for one business
 - `GET /api/project-repos`, `GET /api/project-repos/:id` — all repos or one
 
+### Examples
+
+| Repo id | `execution_type` | Tasks |
+|---------|------------------|--------|
+| `my-gmail-manager` | `local` | Gmail job routes; spawn dispatcher |
+| `city-nonprofits` | `local` | Monday digest enqueue + process-due; spawn Express on port 3028 |
+| (future) | `production` | `call_only` to `production_base_url` when worker must stay on Railway |
+
 ## Related
 
 - [009 – Local scheduler service](./009-local-scheduler-service.md)

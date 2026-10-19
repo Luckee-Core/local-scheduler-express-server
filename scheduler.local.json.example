@@ -7,7 +7,9 @@
     },
     "city-nonprofits": {
       "expressDir": "/absolute/path/to/city-nonprofits-express-server",
-      "port": 3028
+      "port": 3028,
+      "startCommand": "npm start",
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
     },
     "philly-ai-consulting": {
       "expressDir": "/absolute/path/to/philly-ai-consulting-express-server",

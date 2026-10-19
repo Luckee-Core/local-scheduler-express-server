@@ -17,6 +17,12 @@
       "expressDir": "/Users/you/luckee/philly-ai-consulting/philly-ai-consulting-express-server",
       "port": 3044,
       "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
+    },
+    "city-nonprofits": {
+      "expressDir": "/Users/you/github/citynonprofits/city-nonprofits-express-server",
+      "port": 3028,
+      "startCommand": "npm start",
+      "nvmSh": "/Users/YOUR_USER/.nvm/nvm.sh"
     }
   }
 }

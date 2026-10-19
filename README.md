@@ -45,7 +45,7 @@ curl http://127.0.0.1:3022/api/tasks
 | `data/tasks.registry.json` | Seed fixture for `npm run db:seed` |
 | `.env` | `PORT`, `SCHEDULER_WORKERS_DIR`; worker secrets (`GMAIL_MANAGER_CRON_SECRET`, `CITY_NONPROFITS_CRON_SECRET`, etc.) |
 
-**City Nonprofits Monday digest:** seeded tasks call **production** Railway via `scheduler_project_repo` (`call_only`); keep them disabled while Supabase pg_cron runs in prod. Set `CITY_NONPROFITS_CRON_SECRET` to match `city-nonprofits-express-server`. `scheduler.local.json` worker keys must match `scheduler_project_repo.id`.
+**City Nonprofits Monday digest:** studio spawns `city-nonprofits-express-server` on **127.0.0.1:3028** (`start_if_needed_stop_if_started`), same pattern as Gmail. Set `CITY_NONPROFITS_CRON_SECRET` in scheduler `.env` to match the worker `.env`. Add `city-nonprofits` to `scheduler.local.json` (see `scheduler.local.json.studio.example`). Disable Supabase **pg_cron** digest jobs when studio is authoritative (`city-nonprofits-express-server/supabase/cron-jobs/README.md`). Worker setup: `.env.studio-scheduler.example`.
 
 Gmail dispatcher on the same Mac as cron: `my-gmail-manager-express-server/.env.studio-cron.example`.
 

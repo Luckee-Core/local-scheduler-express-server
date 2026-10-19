@@ -6,10 +6,9 @@ import fs from 'fs';
 import path from 'path';
 import { upsertSchedulerProject } from '../src/data/scheduler_project';
 import { upsertSchedulerProjectRepo } from '../src/data/scheduler_project_repo';
-import { insertScheduledTask, getScheduledTaskById, updateScheduledTask } from '../src/data/scheduled_tasks';
-import type { ScheduledTaskLifecycle, TaskSchedule } from '../src/model/scheduled-task';
 import type { SchedulerExecutionType } from '../src/model/scheduler-project-repo';
 import { initializePgPool, getManagedPgPool } from '../src/services/managed';
+import { upsertTasksFromRegistryFile } from './lib/upsert-tasks-from-registry';
 
 dotenv.config();
 
@@ -26,26 +25,6 @@ type RepoRegistryFile = {
     productionBaseUrl?: string;
     defaultPort?: number;
     healthPath?: string;
-  }>;
-};
-
-type TasksRegistryFile = {
-  tasks: Array<{
-    id: string;
-    name: string;
-    workerProjectId: string;
-    schedulerProjectRepoId?: string;
-    schedulerProjectId?: string;
-    worker: {
-      expressRepoName: string;
-      defaultPort: number;
-      healthPath: string;
-      startCommand: string;
-    };
-    request: { method: string; path: string; authEnvKey?: string };
-    schedule: TaskSchedule;
-    lifecycle: ScheduledTaskLifecycle;
-    enabledByDefault: boolean;
   }>;
 };
 
@@ -81,50 +60,7 @@ const main = async (): Promise<void> => {
     console.log(`✅ Upserted repo ${repo.id}`);
   }
 
-  const registryPath = path.join(process.cwd(), 'data', 'tasks.registry.json');
-  const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TasksRegistryFile;
-
-  let localEnabled: Record<string, { enabled?: boolean }> = {};
-  const localPath = path.join(process.cwd(), 'scheduler.local.json');
-  if (fs.existsSync(localPath)) {
-    const local = JSON.parse(fs.readFileSync(localPath, 'utf8')) as {
-      tasks?: Record<string, { enabled?: boolean }>;
-    };
-    localEnabled = local.tasks ?? {};
-  }
-
-  for (const entry of registry.tasks) {
-    const enabled =
-      localEnabled[entry.id]?.enabled !== undefined
-        ? localEnabled[entry.id].enabled!
-        : entry.enabledByDefault;
-
-    const schedulerProjectRepoId =
-      entry.schedulerProjectRepoId ??
-      entry.schedulerProjectId ??
-      entry.workerProjectId;
-
-    const input = {
-      id: entry.id,
-      name: entry.name,
-      workerProjectId: schedulerProjectRepoId,
-      schedulerProjectRepoId,
-      enabled,
-      worker: entry.worker,
-      request: entry.request,
-      schedule: entry.schedule,
-      lifecycle: entry.lifecycle,
-    };
-
-    const existing = await getScheduledTaskById(pool, entry.id);
-    if (existing) {
-      await updateScheduledTask(pool, entry.id, input);
-      console.log(`✅ Updated task ${entry.id}`);
-    } else {
-      await insertScheduledTask(pool, input);
-      console.log(`✅ Inserted task ${entry.id}`);
-    }
-  }
+  await upsertTasksFromRegistryFile(pool, 'data/tasks.registry.json');
 
   console.log('✅ Seed complete');
   await pool.end();

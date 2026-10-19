@@ -25,8 +25,7 @@
       "id": "city-nonprofits",
       "schedulerProjectId": "city-nonprofits",
       "expressRepoName": "city-nonprofits-express-server",
-      "executionType": "production",
-      "productionBaseUrl": "https://city-nonprofits-express-server-production-ba3c.up.railway.app",
+      "executionType": "local",
       "defaultPort": 3028,
       "healthPath": "/api/health"
     }
